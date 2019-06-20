@@ -14,7 +14,7 @@ const ts = require("gulp-typescript");
 const tsProject = ts.createProject("tsconfig.json");
 const htmlmin = require("gulp-htmlmin");
 const minifyImg = require("gulp-imagemin");
-
+const nodemon = require('gulp-nodemon');
 var paths = {
   dirs: {
     build: ".build",
@@ -29,6 +29,21 @@ var paths = {
   js: { src: "js/**/*.js", dest: "public/javascripts" },
   cb: { src: "views/layouts/**/*.hbs", dest: "views/layouts" }
 };
+
+//Nodemon
+function nodemonTask(done) {
+  var stream = nodemon({ script: 'public/main.js'
+          , ext: 'html js'
+          , done: done});
+  stream
+      .on('restart', function () {
+        console.log('restarted!')
+      })
+      .on('crash', function() {
+        console.error('Application has crashed!\n')
+         stream.emit('restart', 10)  // restart the server in 10 seconds
+      })
+}
 
 // Sass task: compiles the style.scss file into style.css
 function scssTask() {
@@ -80,7 +95,7 @@ function htmlTask() {
 
 // Watch task: watch SCSS and JS files for changes
 // If any change, run scss and js tasks simultaneously
-function watchTask() {
+async function watchTask() {
   watch(paths.sass.src, series(scssTask, cacheBustTask, htmlTask));
   watch(paths.ts.src, series(tsTask, jsTask, cacheBustTask, htmlTask));
   watch(paths.tsmain.src, series(tsTask, jsTask, cacheBustTask, htmlTask));
@@ -98,6 +113,7 @@ exports.default = series(
   jsTask,
   cacheBustTask,
   htmlTask,
-  imgTask,
-  watchTask
+  imgTask,parallel(
+  nodemonTask,
+  watchTask)
 );
