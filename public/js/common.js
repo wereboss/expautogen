@@ -1,0 +1,1 @@
+"use strict";let num=10;console.log("number:"+num);let namex="typescript";console.log("Name:"+namex);

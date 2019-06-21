@@ -5,7 +5,7 @@ const { src, dest, watch, series, parallel } = require("gulp");
 const sourcemaps = require("gulp-sourcemaps");
 const sass = require("gulp-sass");
 const concat = require("gulp-concat");
-const uglify = require("gulp-uglify");
+const uglify = require("gulp-uglify-es").default;
 const postcss = require("gulp-postcss");
 const autoprefixer = require("autoprefixer");
 const cssnano = require("cssnano");
@@ -14,35 +14,44 @@ const ts = require("gulp-typescript");
 const tsProject = ts.createProject("tsconfig.json");
 const htmlmin = require("gulp-htmlmin");
 const minifyImg = require("gulp-imagemin");
-const nodemon = require('gulp-nodemon');
+const nodemon = require("gulp-nodemon");
+const clean = require("gulp-clean");
+
 var paths = {
   dirs: {
     build: ".build",
-    dist: "public"
+    dist: "public/*"
   },
-  html: { src: "*.html", dest: "public" },
-  images: { src: "images/**/*.{JPG,jpg,png,gif}", dest: "public/images" },
-  json: { src: "json/**/*.json", dest: "public/json" },
-  sass: { src: "sass/**/*.scss", dest: "public/stylesheets" },
-  tsmain: { src: "*.ts", dest: "public" },
-  ts: { src: "ts/**/*.ts", dest: "js" },
-  js: { src: "js/**/*.js", dest: "public/javascripts" },
+  html: { src: "src/html/*.html", dest: "public/html" },
+  images: { src: "src/img/**/*.{JPG,jpg,png,gif}", dest: "public/img" },
+  json: { src: "src/json/**/*.json", dest: "public/json" },
+  sass: { src: "src/sass/**/*.scss", dest: "public/css" },
+  tsmain: { src: "*.ts", dest: "." },
+  ts: { src: "src/ts/**/*.js", dest: "public/js" },
+  js: { src: "src/{js/**/*.js,ts/**/*.js}", dest: "public/js" },
   cb: { src: "views/layouts/**/*.hbs", dest: "views/layouts" }
 };
 
+//Clean
+function cleanTask() {
+  return src(paths.dirs.dist, { allowEmpty: true, read: false }).pipe(clean());
+}
+
 //Nodemon
 function nodemonTask(done) {
-  var stream = nodemon({ script: 'public/main.js'
-          , ext: 'html js'
-          , done: done});
+  var stream = nodemon({
+    script: "main.js",
+    ext: "html js",
+    done: done
+  });
   stream
-      .on('restart', function () {
-        console.log('restarted!')
-      })
-      .on('crash', function() {
-        console.error('Application has crashed!\n')
-         stream.emit('restart', 10)  // restart the server in 10 seconds
-      })
+    .on("restart", function() {
+      console.log("restarted!");
+    })
+    .on("crash", function() {
+      console.error("Application has crashed!\n");
+      stream.emit("restart", 10); // restart the server in 10 seconds
+    });
 }
 
 // Sass task: compiles the style.scss file into style.css
@@ -63,6 +72,14 @@ function imgTask() {
 }
 
 //Typescript
+function tsJoin() {
+  return src(paths.ts.src)
+    .pipe(concat("combined.ts"))
+    .pipe(dest(paths.ts.dest));
+}
+function tscleanTask() {
+  return src(paths.ts.src, { allowEmpty: true, read: false }).pipe(clean());
+}
 function tsTask() {
   return tsProject
     .src()
@@ -73,7 +90,7 @@ function tsTask() {
 //Javascript
 function jsTask() {
   return src(paths.js.src)
-    .pipe(concat("all.js"))
+    .pipe(concat("common.js"))
     .pipe(uglify())
     .pipe(dest(paths.js.dest));
 }
@@ -93,6 +110,7 @@ function htmlTask() {
     .pipe(dest(paths.html.dest));
 }
 
+
 // Watch task: watch SCSS and JS files for changes
 // If any change, run scss and js tasks simultaneously
 async function watchTask() {
@@ -108,12 +126,12 @@ async function watchTask() {
 // Runs the scss and js tasks simultaneously
 // then runs cacheBust, then watch task
 exports.default = series(
+  cleanTask,
   scssTask,
   tsTask,
   jsTask,
-  cacheBustTask,
   htmlTask,
-  imgTask,parallel(
-  nodemonTask,
-  watchTask)
+  imgTask,
+  parallel(nodemonTask, watchTask)
 );
+exports.test = series(tsTask,jsTask);
